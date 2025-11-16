@@ -164,4 +164,4 @@ const sprite = new YvSpriteAnimation({
 	},
 });
 
-sprite.play("rev_idle");
+sprite.play("idle");

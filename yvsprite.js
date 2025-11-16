@@ -1,40 +1,7 @@
-// sprite.play("walk");
-// sprite.pause();
-// sprite.next();
-// sprite.continue();
-// sprite.set_fps(3);
-
-// sprite.get_frame();
-// sprite.get_animation();
-// sprite.get_source();
-
-// sprite.on("start", () => null);
-// sprite.on("complete", () => null);
-// sprite.on("frame", () => null);
-
 class YvSpriteAnimation {
-	/*  play(animation_name) - automatic process of playing, no need to create a manager
-        stop() - stop automatic process
-        pause(true, false) - prevent frame from going to the next frame
-        next(jump) - current_frame + jump
-        render() - render the sprite based on current frame
-
-        set_animation(animation_name) - change the animation to animation_name if it exists
-        set_animation_option(animation_name, opt) - fps, loop: true, sequence: [4, 3, 2, 1, 0]
-        set_default_fps(new_fps) - set the default fps to new_fps
-        set_frame(column) - set the current animation frame to column
-
-        get_animation_info() - returns current animation and current frame
-        get_info() - returns source, width, height, frame width, frame height */
 	constructor(opt) {
-		// selector (optional) - where to attach the element
-		// source - spritesheet source path
-		// columns - number of columns
-		// rows - number of rows
-		// default_fps - the target fps if animation's fps is not set
-		// animations - the animations
-
 		const { selector = null, source, columns, rows, default_fps = 10, default_animation, animations } = opt;
+		this.opt = opt;
 
 		if (source == null || source == "") throw new Error("'source' is undefined");
 		if (columns == null || columns <= 0) throw new Error("'columns' property is invalid");
@@ -44,6 +11,7 @@ class YvSpriteAnimation {
 		if (Object.keys(animations).length == 0) throw new Error("'animations' is empty");
 
 		this.current_frame = 0;
+		this.is_pause = false;
 		this.current_animation = animations[default_animation];
 
 		this.root = document.createElement("div");
@@ -65,121 +33,121 @@ class YvSpriteAnimation {
 			this.root.style.background = `url(${source})`;
 			this.root.style.width = `${this.frame_width}px`;
 			this.root.style.height = `${this.frame_height}px`;
+
+			if (this.on_ready) this.on_ready();
 		};
 	}
 
-	play(animation_name = null) {
+	play(animation_name = null, render_visible = false) {
+		this.current_frame = 0;
+
 		if (animation_name) {
 			this.current_animation = this.opt.animations[animation_name];
 		}
 
+		if (this.player) clearInterval(this.player);
 		this.player = setInterval(() => {
-			this.render();
+			if (this.is_pause) return;
+			if (render_visible) this.render_visible();
+			else this.render();
 			this.next();
-		}, this.current_animation.fps);
+		}, 1000 / (this.current_animation.fps ?? this.opt.default_fps));
+		return this;
+	}
+
+	get_root() {
+		return this.root;
+	}
+
+	get_animation_info() {
+		return { current_animation: this.current_animation, current_frame: this.current_frame };
+	}
+
+	get_opt() {
+		return this.opt;
+	}
+
+	get_info() {
+		return { frame_width: this.frame_width, frame_height: this.frame_height, image_width: this.image_width, image_height: this.image_height };
+	}
+
+	pause(bool) {
+		this.is_pause = bool;
+		return this;
 	}
 
 	stop() {
 		clearInterval(this.player);
+		return this;
+	}
+
+	set_sequence(sequence) {
+		this.current_animation.sequence = sequence;
+		return this;
+	}
+
+	set_loop(bool) {
+		this.current_animation.loop = bool;
+		return this;
+	}
+
+	set_default_fps(fps) {
+		this.default_fps = fps;
+		return this;
+	}
+
+	set_fps(fps) {
+		this.current_animation.fps = fps;
+		if (this.player) {
+			this.stop();
+			this.play();
+		}
+		return this;
 	}
 
 	next(jump = 1) {
 		let frame = this.current_frame + jump;
 
 		if (this.current_animation.sequence) {
-			if (frame < 0) frame = this.sequence.length - 1;
-			if (frame > this.sequence.length) frame = 0;
+			if (frame < 0) frame = this.current_animation.sequence.length - 1;
+			if (frame > this.current_animation.sequence.length - 1) {
+				if (this.current_animation.loop) {
+					frame = 0;
+					if (this.on_complete) this.on_complete();
+				} else return this;
+			}
 		} else {
 			if (frame < 0) frame = this.current_animation.steps - 1;
-			if (frame > this.current_animation.steps) frame = 0;
-		}
-
-		this.current_frame = frame;
-	}
-
-	render() {
-		const frame_pointer = this.current_animation.sequence ? this.current_animation.sequence[current_frame] : this.current_frame;
-		this.root.style.backgroundPosition = `-${this.frame_width * frame_pointer}px ${this.frame_height * this.current_animation.row}px`;
-	}
-
-	set_frame(row, column) {
-		null;
-	}
-}
-
-const sprite = new YvSpriteAnimation({
-	source: "rotatoes_attack.png",
-	default_animation: "walk",
-	rows: 1,
-	max_steps: 7,
-	animations: {
-		walk: { fps: 10, start: 0, steps: 5, loop: true, row: 0 },
-		rev_walk: { fps: 10, start: 0, steps: 5, loop: true, row: 0, sequence: [4, 3, 2, 1, 0] },
-	},
-});
-
-let frameCount = 0;
-let lastTime = performance.now();
-let realFps = 0;
-const fpsel = document.getElementById("fps");
-function updateFps() {
-	const now = performance.now();
-	frameCount++;
-	if (now - lastTime >= 1000) {
-		// 1 second passed
-		realFps = frameCount;
-		frameCount = 0;
-		lastTime = now;
-		fpsel.innerText = realFps;
-	}
-}
-
-const sprites = [];
-for (let i = 0; i < 3000; i++) {
-	sprites.push(
-		new YvSpriteAnimation({
-			source: "rotatoes_attack.png",
-			rows: 1,
-			max_steps: 7,
-			default_animation: "walk",
-			animations: {
-				walk: { fps: 10, start: 0, steps: 5, loop: true, row: 0 },
-			},
-		})
-	);
-}
-
-const targetFps = 60;
-const frameDuration = 1000 / targetFps;
-let lastFrameTime = performance.now();
-
-function animate(timestamp) {
-	if (timestamp - lastFrameTime >= frameDuration) {
-		lastFrameTime = timestamp;
-
-		for (let i = 0; i < sprites.length; i++) {
-			const sprite = sprites[i];
-			if (isVisible(sprite.root)) {
-				sprite.root.style.visibility = "visible";
-				sprite.next();
-				sprite.render();
-			} else {
-				sprite.root.style.visibility = "hidden";
-				sprite.next();
+			if (frame > this.current_animation.steps - 1) {
+				if (this.current_animation.loop) {
+					frame = 0;
+					if (this.on_complete) this.on_complete();
+				} else return this;
 			}
 		}
 
-		updateFps();
+		this.current_frame = frame;
+		return this;
 	}
 
-	requestAnimationFrame(animate);
+	render() {
+		const frame_pointer = this.current_animation.sequence ? this.current_animation.sequence[this.current_frame] : this.current_frame;
+		this.root.style.backgroundPosition = `-${this.frame_width * frame_pointer}px ${this.frame_height * this.current_animation.row}px`;
+		return this;
+	}
+
+	render_visible() {
+		if (this.is_visible()) this.render();
+		return this;
+	}
+
+	is_visible() {
+		const rect = this.root.getBoundingClientRect();
+		return rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth;
+	}
+
+	set_frame(column) {
+		this.current_frame = column;
+		return this;
+	}
 }
-
-requestAnimationFrame(animate);
-
-function isVisible(el) {
-	const rect = el.getBoundingClientRect();
-	return rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth;
-}
-
-document.body.style = "display: grid; grid-template-columns: repeat(15, 1fr)";

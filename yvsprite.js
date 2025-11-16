@@ -151,3 +151,17 @@ class YvSpriteAnimation {
 		return this;
 	}
 }
+
+const sprite = new YvSpriteAnimation({
+	source: "rotatoes_attack.png",
+	default_animation: "idle",
+	default_fps: 10,
+	columns: 7,
+	rows: 1,
+	animations: {
+		idle: { fps: 8, steps: 7, row: 0, loop: true },
+		rev_idle: { row: 0, sequence: [6, 6, 6, 6, 6, 5, 4, 3, 2, 1, 0] },
+	},
+});
+
+sprite.play("rev_idle");
